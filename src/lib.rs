@@ -5,22 +5,52 @@
 //! terminal. A quick example:
 //!
 //! ```no_run
-//! extern crate textwrap;
-//! use textwrap::fill;
-//!
 //! fn main() {
 //!     let text = "textwrap: a small library for wrapping text.";
-//!     println!("{}", fill(text, 18));
+//!     println!("{}", textwrap::fill(text, 18));
 //! }
 //! ```
 //!
-//! This will display the following output:
+//! When you run this program, it will display the following output:
 //!
 //! ```text
 //! textwrap: a small
 //! library for
 //! wrapping text.
 //! ```
+//!
+//! If you enable the `hyphenation` feature, you can get automatic
+//! hyphenation for a number of languages:
+//!
+//! ```no_run
+//! # #[cfg(feature = "hyphenation")]
+//! use hyphenation::{Language, Load, Standard};
+//! use textwrap::Wrapper;
+//!
+//! # #[cfg(feature = "hyphenation")]
+//! fn main() {
+//!     let text = "textwrap: a small library for wrapping text.";
+//!     let dictionary = Standard::from_embedded(Language::EnglishUS).unwrap();
+//!     let wrapper = Wrapper::with_splitter(18, dictionary);
+//!     println!("{}", wrapper.fill(text));
+//! }
+//!
+//! # #[cfg(not(feature = "hyphenation"))]
+//! # fn main() { }
+//! ```
+//!
+//! The program will now output:
+//!
+//! ```text
+//! textwrap: a small
+//! library for wrap-
+//! ping text.
+//! ```
+//!
+//! # Wrapping Strings at Compile Time
+//!
+//! If your strings are known at compile time, please take a look at
+//! the procedural macros from the [`textwrap-macros` crate].
 //!
 //! # Displayed Width vs Byte Size
 //!
@@ -39,17 +69,29 @@
 //! byte count when computing line lengths. All functions in this
 //! library handle Unicode characters like this.
 //!
+//! # Cargo Features
+//!
+//! The library has two optional features:
+//!
+//! * `terminal_size`: enables automatic detection of the terminal
+//!   width via the [terminal_size][] crate. See the
+//!   [`Wrapper::with_termwidth`] constructor for details.
+//!
+//! * `hyphenation`: enables language-sentive hyphenation via the
+//!   [hyphenation][] crate. See the [`WordSplitter`] trait for
+//!   details.
+//!
+//! [`textwrap-macros` crate]: https://crates.io/crates/textwrap-macros
 //! [unicode-width]: https://docs.rs/unicode-width/
+//! [terminal_size]: https://crates.io/crates/terminal_size
+//! [hyphenation]: https://crates.io/crates/hyphenation
+//! [`Wrapper::with_termwidth`]: struct.Wrapper.html#method.with_termwidth
+//! [`WordSplitter`]: trait.WordSplitter.html
 
-#![doc(html_root_url = "https://docs.rs/textwrap/0.11.0")]
+#![doc(html_root_url = "https://docs.rs/textwrap/0.12.1")]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
-
-#[cfg(feature = "hyphenation")]
-extern crate hyphenation;
-#[cfg(feature = "term_size")]
-extern crate term_size;
-extern crate unicode_width;
+#![allow(clippy::redundant_field_names)]
 
 use std::borrow::Cow;
 use std::str::CharIndices;
@@ -60,12 +102,19 @@ use unicode_width::UnicodeWidthStr;
 /// A non-breaking space.
 const NBSP: char = '\u{a0}';
 
+/// The CSI or "Control Sequence Introducer" introduces an ANSI escape
+/// sequence. This is typically used for colored text and will be
+/// ignored when computing the text width.
+const CSI: (char, char) = ('\u{1b}', '[');
+/// The final bytes of an ANSI escape sequence must be in this range.
+const ANSI_FINAL_BYTE: std::ops::RangeInclusive<char> = '\x40'..='\x7e';
+
 mod indentation;
-pub use indentation::dedent;
-pub use indentation::indent;
+pub use crate::indentation::dedent;
+pub use crate::indentation::indent;
 
 mod splitting;
-pub use splitting::{HyphenSplitter, NoHyphenation, WordSplitter};
+pub use crate::splitting::{HyphenSplitter, NoHyphenation, WordSplitter};
 
 /// A Wrapper holds settings for wrapping and filling text. Use it
 /// when the convenience [`wrap_iter`], [`wrap`] and [`fill`] functions
@@ -124,7 +173,10 @@ impl<'a> Wrapper<'a, HyphenSplitter> {
     ///
     /// let wrapper = Wrapper::new(termwidth());
     /// ```
-    #[cfg(feature = "term_size")]
+    ///
+    /// **Note:** Only available when the `terminal_size` feature is
+    /// enabled.
+    #[cfg(feature = "terminal_size")]
     pub fn with_termwidth() -> Wrapper<'a, HyphenSplitter> {
         Wrapper::new(termwidth())
     }
@@ -206,9 +258,7 @@ impl<'a, S: WordSplitter> Wrapper<'a, S> {
         }
     }
 
-    /// Fill a line of text at `self.width` characters. Strings are
-    /// wrapped based on their displayed width, not their size in
-    /// bytes.
+    /// Fill a line of text at `self.width` characters.
     ///
     /// The result is a string with newlines between each line. Use
     /// the `wrap` method if you need access to the individual lines.
@@ -243,9 +293,7 @@ impl<'a, S: WordSplitter> Wrapper<'a, S> {
         result
     }
 
-    /// Wrap a line of text at `self.width` characters. Strings are
-    /// wrapped based on their displayed width, not their size in
-    /// bytes.
+    /// Wrap a line of text at `self.width` characters.
     ///
     /// # Complexities
     ///
@@ -286,9 +334,7 @@ impl<'a, S: WordSplitter> Wrapper<'a, S> {
         self.wrap_iter(s).collect::<Vec<_>>()
     }
 
-    /// Lazily wrap a line of text at `self.width` characters. Strings
-    /// are wrapped based on their displayed width, not their size in
-    /// bytes.
+    /// Lazily wrap a line of text at `self.width` characters.
     ///
     /// The [`WordSplitter`] stored in [`self.splitter`] is used
     /// whenever when a word is too large to fit on the current line.
@@ -310,18 +356,18 @@ impl<'a, S: WordSplitter> Wrapper<'a, S> {
     /// # Examples
     ///
     /// ```
-    /// use std::borrow::Cow;
+    /// use std::borrow::Cow::Borrowed;
     /// use textwrap::Wrapper;
     ///
     /// let wrap20 = Wrapper::new(20);
     /// let mut wrap20_iter = wrap20.wrap_iter("Zero-cost abstractions.");
-    /// assert_eq!(wrap20_iter.next(), Some(Cow::from("Zero-cost")));
-    /// assert_eq!(wrap20_iter.next(), Some(Cow::from("abstractions.")));
+    /// assert_eq!(wrap20_iter.next(), Some(Borrowed("Zero-cost")));
+    /// assert_eq!(wrap20_iter.next(), Some(Borrowed("abstractions.")));
     /// assert_eq!(wrap20_iter.next(), None);
     ///
     /// let wrap25 = Wrapper::new(25);
     /// let mut wrap25_iter = wrap25.wrap_iter("Zero-cost abstractions.");
-    /// assert_eq!(wrap25_iter.next(), Some(Cow::from("Zero-cost abstractions.")));
+    /// assert_eq!(wrap25_iter.next(), Some(Borrowed("Zero-cost abstractions.")));
     /// assert_eq!(wrap25_iter.next(), None);
     /// ```
     ///
@@ -335,9 +381,7 @@ impl<'a, S: WordSplitter> Wrapper<'a, S> {
         }
     }
 
-    /// Lazily wrap a line of text at `self.width` characters. Strings
-    /// are wrapped based on their displayed width, not their size in
-    /// bytes.
+    /// Lazily wrap a line of text at `self.width` characters.
     ///
     /// The [`WordSplitter`] stored in [`self.splitter`] is used
     /// whenever when a word is too large to fit on the current line.
@@ -354,13 +398,13 @@ impl<'a, S: WordSplitter> Wrapper<'a, S> {
     /// # Examples
     ///
     /// ```
-    /// use std::borrow::Cow;
+    /// use std::borrow::Cow::Borrowed;
     /// use textwrap::Wrapper;
     ///
     /// let wrap20 = Wrapper::new(20);
     /// let mut wrap20_iter = wrap20.into_wrap_iter("Zero-cost abstractions.");
-    /// assert_eq!(wrap20_iter.next(), Some(Cow::from("Zero-cost")));
-    /// assert_eq!(wrap20_iter.next(), Some(Cow::from("abstractions.")));
+    /// assert_eq!(wrap20_iter.next(), Some(Borrowed("Zero-cost")));
+    /// assert_eq!(wrap20_iter.next(), Some(Borrowed("abstractions.")));
     /// assert_eq!(wrap20_iter.next(), None);
     /// ```
     ///
@@ -410,7 +454,7 @@ impl<'a, S: WordSplitter> Iterator for IntoWrapIter<'a, S> {
 ///
 /// [`Wrapper::wrap_iter`]: struct.Wrapper.html#method.wrap_iter
 #[derive(Debug)]
-pub struct WrapIter<'w, 'a: 'w, S: WordSplitter + 'w> {
+pub struct WrapIter<'w, 'a: 'w, S: WordSplitter> {
     wrapper: &'w Wrapper<'a, S>,
     inner: WrapIterImpl<'a>,
 }
@@ -481,9 +525,23 @@ impl<'a> WrapIterImpl<'a> {
         }
 
         while let Some((idx, ch)) = self.char_indices.next() {
+            if ch == CSI.0 && self.char_indices.next().map(|(_, ch)| ch) == Some(CSI.1) {
+                // We have found the start of an ANSI escape code,
+                // typically used for colored text. We ignore all
+                // characters until we find a "final byte" in the
+                // range 0x40–0x7E.
+                while let Some((_, ch)) = self.char_indices.next() {
+                    if ANSI_FINAL_BYTE.contains(&ch) {
+                        break;
+                    }
+                }
+                // Done with the escape sequence, we continue with
+                // next character in the outer loop.
+                continue;
+            }
+
             let char_width = ch.width().unwrap_or(0);
             let char_len = ch.len_utf8();
-
             if ch == '\n' {
                 self.split = idx;
                 self.split_len = char_len;
@@ -529,15 +587,21 @@ impl<'a> WrapIterImpl<'a> {
                         // Advance the split point by the width of the
                         // whitespace and the head length.
                         self.split += self.split_len + head.len();
-                        self.split_len = 0;
+                        // The new `split_len` is equal to the stretch
+                        // of whitespace following the split.
+                        self.split_len = remaining_text[head.len()..]
+                            .char_indices()
+                            .skip_while(|(_, ch)| is_whitespace(*ch))
+                            .next()
+                            .map_or(0, |(idx, _)| idx);
+                        self.line_width_at_split += head.width() + hyp.width();
                         hyphen = hyp;
                         break;
                     }
                 }
 
                 if self.start >= self.split {
-                    // The word is too big to fit on a single line, so we
-                    // need to split it at the current index.
+                    // The word is too big to fit on a single line.
                     if wrapper.break_words {
                         // Break work at current index.
                         self.split = idx;
@@ -545,8 +609,14 @@ impl<'a> WrapIterImpl<'a> {
                         self.line_width_at_split = self.line_width;
                     } else {
                         // Add smallest split.
-                        self.split = self.start + splits[0].0.len();
-                        self.split_len = 0;
+                        self.split += self.split_len + splits[0].0.len();
+                        // The new `split_len` is equal to the stretch
+                        // of whitespace following the smallest split.
+                        self.split_len = remaining_text[splits[0].0.len()..]
+                            .char_indices()
+                            .skip_while(|(_, ch)| is_whitespace(*ch))
+                            .next()
+                            .map_or(0, |(idx, _)| idx);
                         self.line_width_at_split = self.line_width;
                     }
                 }
@@ -560,6 +630,7 @@ impl<'a> WrapIterImpl<'a> {
                     self.line_width += wrapper.subsequent_indent.width();
                     self.line_width -= self.line_width_at_split;
                     self.line_width += char_width;
+                    self.line_width_at_split = wrapper.subsequent_indent.width();
 
                     return Some(line);
                 }
@@ -600,13 +671,15 @@ impl<'a> WrapIterImpl<'a> {
 ///     .initial_indent("  ")
 ///     .subsequent_indent("  ");
 /// ```
-#[cfg(feature = "term_size")]
+///
+/// **Note:** Only available when the `terminal_size` feature is
+/// enabled.
+#[cfg(feature = "terminal_size")]
 pub fn termwidth() -> usize {
-    term_size::dimensions_stdout().map_or(80, |(w, _)| w)
+    terminal_size::terminal_size().map_or(80, |(terminal_size::Width(w), _)| w.into())
 }
 
-/// Fill a line of text at `width` characters. Strings are wrapped
-/// based on their displayed width, not their size in bytes.
+/// Fill a line of text at `width` characters.
 ///
 /// The result is a string with newlines between each line. Use
 /// [`wrap`] if you need access to the individual lines or
@@ -631,8 +704,7 @@ pub fn fill(s: &str, width: usize) -> String {
     Wrapper::new(width).fill(s)
 }
 
-/// Wrap a line of text at `width` characters. Strings are wrapped
-/// based on their displayed width, not their size in bytes.
+/// Wrap a line of text at `width` characters.
 ///
 /// This function creates a Wrapper on the fly with default settings.
 /// If you need to set a language corpus for automatic hyphenation, or
@@ -659,12 +731,11 @@ pub fn fill(s: &str, width: usize) -> String {
 ///
 /// [`wrap_iter`]: fn.wrap_iter.html
 /// [`wrap` method]: struct.Wrapper.html#method.wrap
-pub fn wrap(s: &str, width: usize) -> Vec<Cow<str>> {
+pub fn wrap(s: &str, width: usize) -> Vec<Cow<'_, str>> {
     Wrapper::new(width).wrap(s)
 }
 
-/// Lazily wrap a line of text at `width` characters. Strings are
-/// wrapped based on their displayed width, not their size in bytes.
+/// Lazily wrap a line of text at `width` characters.
 ///
 /// This function creates a Wrapper on the fly with default settings.
 /// It then calls the [`into_wrap_iter`] method. Hence, the return
@@ -678,16 +749,16 @@ pub fn wrap(s: &str, width: usize) -> Vec<Cow<str>> {
 /// # Examples
 ///
 /// ```
-/// use std::borrow::Cow;
+/// use std::borrow::Cow::Borrowed;
 /// use textwrap::wrap_iter;
 ///
 /// let mut wrap20_iter = wrap_iter("Zero-cost abstractions.", 20);
-/// assert_eq!(wrap20_iter.next(), Some(Cow::from("Zero-cost")));
-/// assert_eq!(wrap20_iter.next(), Some(Cow::from("abstractions.")));
+/// assert_eq!(wrap20_iter.next(), Some(Borrowed("Zero-cost")));
+/// assert_eq!(wrap20_iter.next(), Some(Borrowed("abstractions.")));
 /// assert_eq!(wrap20_iter.next(), None);
 ///
 /// let mut wrap25_iter = wrap_iter("Zero-cost abstractions.", 25);
-/// assert_eq!(wrap25_iter.next(), Some(Cow::from("Zero-cost abstractions.")));
+/// assert_eq!(wrap25_iter.next(), Some(Borrowed("Zero-cost abstractions.")));
 /// assert_eq!(wrap25_iter.next(), None);
 /// ```
 ///
@@ -695,15 +766,12 @@ pub fn wrap(s: &str, width: usize) -> Vec<Cow<str>> {
 /// [`into_wrap_iter`]: struct.Wrapper.html#method.into_wrap_iter
 /// [`IntoWrapIter`]: struct.IntoWrapIter.html
 /// [`WrapIter`]: struct.WrapIter.html
-pub fn wrap_iter(s: &str, width: usize) -> IntoWrapIter<HyphenSplitter> {
+pub fn wrap_iter(s: &str, width: usize) -> IntoWrapIter<'_, HyphenSplitter> {
     Wrapper::new(width).into_wrap_iter(s)
 }
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "hyphenation")]
-    extern crate hyphenation;
-
     use super::*;
     #[cfg(feature = "hyphenation")]
     use hyphenation::{Language, Load, Standard};
@@ -866,6 +934,26 @@ mod tests {
     }
 
     #[test]
+    fn multiple_unbroken_words_issue_193() {
+        let wrapper = Wrapper::new(3).break_words(false);
+        assert_eq!(
+            wrapper.wrap("small large tiny"),
+            vec!["small", "large", "tiny"]
+        );
+        assert_eq!(
+            wrapper.wrap("small  large   tiny"),
+            vec!["small", "large", "tiny"]
+        );
+    }
+
+    #[test]
+    fn very_narrow_lines_issue_193() {
+        let wrapper = Wrapper::new(1).break_words(false);
+        assert_eq!(wrapper.wrap("fooo x y"), vec!["fooo", "x", "y"]);
+        assert_eq!(wrapper.wrap("fooo   x     y"), vec!["fooo", "x", "y"]);
+    }
+
+    #[test]
     fn no_hyphenation() {
         let wrapper = Wrapper::with_splitter(8, NoHyphenation);
         assert_eq!(wrapper.wrap("foo bar-baz"), vec!["foo", "bar-baz"]);
@@ -885,6 +973,23 @@ mod tests {
         assert_eq!(
             wrapper.wrap("Internationalization"),
             vec!["Interna-", "tionaliza-", "tion"]
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "hyphenation")]
+    fn auto_hyphenation_issue_158() {
+        let dictionary = Standard::from_embedded(Language::EnglishUS).unwrap();
+        let wrapper = Wrapper::new(10);
+        assert_eq!(
+            wrapper.wrap("participation is the key to success"),
+            vec!["participat", "ion is the", "key to", "success"]
+        );
+
+        let wrapper = Wrapper::with_splitter(10, dictionary);
+        assert_eq!(
+            wrapper.wrap("participation is the key to success"),
+            vec!["participa-", "tion is the", "key to", "success"]
         );
     }
 
@@ -983,5 +1088,17 @@ mod tests {
     #[test]
     fn fill_simple() {
         assert_eq!(fill("foo bar baz", 10), "foo bar\nbaz");
+    }
+
+    #[test]
+    fn fill_colored_text() {
+        // The words are much longer than 6 bytes, but they remain
+        // intact after filling the text.
+        let green_hello = "\u{1b}[0m\u{1b}[32mHello\u{1b}[0m";
+        let blue_world = "\u{1b}[0m\u{1b}[34mWorld!\u{1b}[0m";
+        assert_eq!(
+            fill(&(String::from(green_hello) + " " + &blue_world), 6),
+            String::from(green_hello) + "\n" + &blue_world
+        );
     }
 }
