@@ -5,9 +5,6 @@
 //! functionality. [`HyphenSplitter`] is the default implementation of
 //! this treat: it will simply split words on existing hyphens.
 
-#[cfg(feature = "hyphenation")]
-use hyphenation::{Hyphenator, Standard};
-
 /// An interface for splitting words.
 ///
 /// When the [`wrap_iter`] method will try to fit text into a line, it
@@ -18,7 +15,7 @@ use hyphenation::{Hyphenator, Standard};
 ///
 /// If the `textwrap` crate has been compiled with the `hyphenation`
 /// feature enabled, you will find an implementation of `WordSplitter`
-/// by the `hyphenation::language::Corpus` struct. Use this struct for
+/// by the `hyphenation::Standard` struct. Use this struct for
 /// language-aware hyphenation. See the [`hyphenation` documentation]
 /// for details.
 ///
@@ -27,9 +24,9 @@ use hyphenation::{Hyphenator, Standard};
 /// [`hyphenation` documentation]: https://docs.rs/hyphenation/
 pub trait WordSplitter {
     /// Return all possible splits of word. Each split is a triple
-    /// with a head, a hyphen, and a tail where `head + &hyphen +
-    /// &tail == word`. The hyphen can be empty if there is already a
-    /// hyphen in the head.
+    /// with a head, a hyphen, and a tail where `head + &tail == word`.
+    /// The hyphen can be empty if there is already a hyphen in the
+    /// head.
     ///
     /// The splits should go from smallest to longest and should
     /// include no split at all. So the word "technology" could be
@@ -121,9 +118,13 @@ impl WordSplitter for HyphenSplitter {
 
 /// A hyphenation dictionary can be used to do language-specific
 /// hyphenation using patterns from the hyphenation crate.
+///
+/// **Note:** Only available when the `hyphenation` feature is
+/// enabled.
 #[cfg(feature = "hyphenation")]
-impl WordSplitter for Standard {
+impl WordSplitter for hyphenation::Standard {
     fn split<'w>(&self, word: &'w str) -> Vec<(&'w str, &'w str, &'w str)> {
+        use hyphenation::Hyphenator;
         // Find splits based on language dictionary.
         let mut triples = Vec::new();
         for n in self.hyphenate(word).breaks {
