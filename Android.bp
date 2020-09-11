@@ -5,11 +5,11 @@ rust_library {
     host_supported: true,
     crate_name: "textwrap",
     srcs: ["src/lib.rs"],
-    edition: "2015",
+    edition: "2018",
     rustlibs: [
         "libunicode_width",
     ],
 }
 
 // dependent_library ["feature_list"]
-//   unicode-width-0.1.7 "default"
+//   unicode-width-0.1.8 "default"
