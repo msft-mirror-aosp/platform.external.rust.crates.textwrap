@@ -5,6 +5,9 @@
       "name": "authfs_device_test_src_lib"
     },
     {
+      "name": "vpnprofilestore_test"
+    },
+    {
       "name": "keystore2_test"
     },
     {
