@@ -124,7 +124,7 @@
 //! The full dependency graph, where dashed lines indicate optional
 //! dependencies, is shown below:
 //!
-//! <img src="https://raw.githubusercontent.com/mgeisler/textwrap/master/images/textwrap-0.13.3.svg">
+//! <img src="https://raw.githubusercontent.com/mgeisler/textwrap/master/images/textwrap-0.13.4.svg">
 //!
 //! ## Default Features
 //!
@@ -165,7 +165,7 @@
 //! [terminal_size]: https://docs.rs/terminal_size/
 //! [hyphenation]: https://docs.rs/hyphenation/
 
-#![doc(html_root_url = "https://docs.rs/textwrap/0.13.3")]
+#![doc(html_root_url = "https://docs.rs/textwrap/0.13.4")]
 #![forbid(unsafe_code)] // See https://github.com/mgeisler/textwrap/issues/210
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
@@ -681,8 +681,6 @@ pub fn unfill<'a>(text: &'a str) -> (String, Options<'a, HyphenSplitter>) {
         let without_prefix = line.trim_start_matches(prefix_chars);
         let prefix = &line[..line.len() - without_prefix.len()];
 
-        println!("line: {:?} -> prefix: {:?}", line, prefix);
-
         if idx == 0 {
             options.initial_indent = prefix;
         } else if idx == 1 {
@@ -710,11 +708,7 @@ pub fn unfill<'a>(text: &'a str) -> (String, Options<'a, HyphenSplitter>) {
         }
     }
 
-    println!("pushing trailing newlines: {:?}", &text[trimmed.len()..]);
     unfilled.push_str(&text[trimmed.len()..]);
-
-    println!("unfilled: {:?}", unfilled);
-
     (unfilled, options)
 }
 
