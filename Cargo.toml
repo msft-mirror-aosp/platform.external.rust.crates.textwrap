@@ -13,7 +13,7 @@
 [package]
 edition = "2018"
 name = "textwrap"
-version = "0.14.0"
+version = "0.14.2"
 authors = ["Martin Geisler <martin@geisler.net>"]
 exclude = [".github/", ".gitignore", "benches/", "examples/", "fuzz/", "images/"]
 description = "Powerful library for word wrapping, indenting, and dedenting strings"
