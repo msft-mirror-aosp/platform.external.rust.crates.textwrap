@@ -124,7 +124,7 @@
 //! The full dependency graph, where dashed lines indicate optional
 //! dependencies, is shown below:
 //!
-//! <img src="https://raw.githubusercontent.com/mgeisler/textwrap/master/images/textwrap-0.14.0.svg">
+//! <img src="https://raw.githubusercontent.com/mgeisler/textwrap/master/images/textwrap-0.14.2.svg">
 //!
 //! ## Default Features
 //!
@@ -177,7 +177,7 @@
 //! [terminal_size]: https://docs.rs/terminal_size/
 //! [hyphenation]: https://docs.rs/hyphenation/
 
-#![doc(html_root_url = "https://docs.rs/textwrap/0.14.0")]
+#![doc(html_root_url = "https://docs.rs/textwrap/0.14.2")]
 #![forbid(unsafe_code)] // See https://github.com/mgeisler/textwrap/issues/210
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
@@ -1848,6 +1848,12 @@ mod tests {
             fill(&(String::from(green_hello) + " " + &blue_world), 6),
             String::from(green_hello) + "\n" + &blue_world
         );
+    }
+
+    #[test]
+    fn fill_unicode_boundary() {
+        // https://github.com/mgeisler/textwrap/issues/390
+        fill("\u{1b}!Ͽ", 10);
     }
 
     #[test]
