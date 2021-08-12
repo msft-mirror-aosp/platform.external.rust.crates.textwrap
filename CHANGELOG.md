@@ -3,6 +3,18 @@
 This file lists the most important changes made in each release of
 `textwrap`.
 
+## Version 0.14.2 (2021-06-27)
+
+The 0.14.1 release included more changes than intended and has been
+yanked. The change intended for 0.14.1 is now included in 0.14.2.
+
+## Version 0.14.1 (2021-06-26)
+
+This release fixes a panic reported by @Makoto, thanks!
+
+* [#391](https://github.com/mgeisler/textwrap/pull/391): Fix panic in
+  `find_words` due to string access outside of a character boundary.
+
 ## Version 0.14.0 (2021-06-05)
 
 This is a major feature release which makes Textwrap more configurable
