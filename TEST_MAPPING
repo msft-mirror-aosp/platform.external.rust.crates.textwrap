@@ -5,6 +5,9 @@
       "path": "external/rust/crates/base64"
     },
     {
+      "path": "external/rust/crates/clap"
+    },
+    {
       "path": "external/rust/crates/libsqlite3-sys"
     },
     {
@@ -15,44 +18,6 @@
     },
     {
       "path": "external/rust/crates/unicode-xid"
-    }
-  ],
-  "postsubmit": [
-    {
-      "name": "VtsAidlDiceDemoteTargetTest"
-    },
-    {
-      "name": "VtsAidlDiceTargetTest"
-    },
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
-    {
-      "name": "authfs_device_test_src_lib"
-    },
-    {
-      "name": "diced_test"
-    },
-    {
-      "name": "keystore2_legacy_blobs_test"
-    },
-    {
-      "name": "keystore2_test"
-    },
-    {
-      "name": "keystore2_vintf_test"
-    },
-    {
-      "name": "legacykeystore_test"
-    },
-    {
-      "name": "libtombstoned_client_rust_test"
-    },
-    {
-      "name": "virtualizationservice_device_test"
     }
   ],
   "presubmit": [
